@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Simulador de Lentes</title>
+<style>
+body {
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  background: #C7B89E; /* areia */
+  color: #222;
+}
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+h2 {
+  color: #37184A; /* roxo */
+  margin-bottom: 20px;
+}
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 10px;
+}
+.options.scroll-x {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  justify-content: flex-start;
+}
+.option {
+  background: #f5f0eb;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1 1 200px;
+  max-width: 220px;
+  min-width: 200px;
+}
+.option img {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.option:hover { border: 2px solid #37184A; background: #fdfcff; }
+.selected { border: 2px solid #37184A; background: #f3eafc; }
+.buttons { display: flex; justify-content: space-between; margin-top: 20px; }
+.buttons.first-step { justify-content: flex-end; }
+button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.next { background: #37184A; color: white; }
+.next:hover { background: #2a1239; }
+.prev { background: #ddd; }
+.prev:hover { background: #bbb; }
+.price-box {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #37184A;
+  color: #fff;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: 0.3s;
+}
+.price-box:hover { background: #2a1239; }
+.summary p { margin: 8px 0; }
+.summary a { color: #37184A; text-decoration: underline; cursor: pointer; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="price-box" onclick="goToSummary()">Total: R$ <span id="total">0.00</span></div>
+  <div class="card" id="step-container"></div>
+</div>
+
+<script>
+const imgPath = "https://cdn.awsli.com.br/600x700/919/919087/produto/303480926/6335-0j0ljjtpd0.png";
+
+const steps = [
+  { title: "Qual tipo de lente deseja?", options: [
+      { label:"Visão Simples", value:"simples", price:300, img:imgPath },
+      { label:"Multifocal", value:"multifocal", price:600, img:imgPath }
+  ]},
+  { 
+    optionsSimples:[
+      { label:"Lente pronta", value:"pronta", price:0, img:imgPath },
+      { label:"Surfaçada", value:"surfacada", price:150, img:imgPath }
+    ], 
+    optionsMultifocal:[
+      { label:"Campo Básico", value:"basico", price:0, img:imgPath },
+      { label:"Campo Intermediário", value:"medio", price:200, img:imgPath },
+      { label:"Campo Premium", value:"premium", price:400, img:imgPath }
+    ]
+  },
+  { title:"Escolha o material", options:[
+      { label:"Resina", value:"resina", price:0, img:imgPath },
+      { label:"Policarbonato", value:"policarbonato", price:200, img:imgPath },
+      { label:"1.67", value:"1.67", price:400, img:imgPath },
+      { label:"1.74", value:"1.74", price:600, img:imgPath }
+    ], forceScrollX:true
+  },
+  { title:"Escolha o anti-reflexo", options:[
+      { label:"Incolor", value:"incolor", price:0, img:imgPath },
+      { label:"Comum", value:"comum", price:150, img:imgPath },
+      { label:"Premium", value:"premium", price:300, img:imgPath }
+  ]},
+  { title:"Deseja filtro de luz azul?", options:[
+      { label:"Não", value:"nao", price:0, img:imgPath },
+      { label:"Sim", value:"sim", price:200, img:imgPath }
+  ]},
+  { title:"Deseja escurecimento da lente?", options:[
+      { label:"Não", value:"nao", price:0, img:imgPath },
+      { label:"Sim", value:"sim", price:300, img:imgPath }
+  ]},
+  { title:"Resumo Final", options:[]}
+];
+
+let currentStep = 0;
+let selections = {};
+
+function renderStep() {
+  const container = document.getElementById("step-container");
+  container.innerHTML = "";
+  const step = steps[currentStep];
+  const title = document.createElement("h2");
+  title.textContent = step.title;
+  container.appendChild(title);
+  
+  const optionsBox = document.createElement("div");
+  optionsBox.className = "options";
+  if(step.forceScrollX) optionsBox.classList.add("scroll-x");
+
+  if(currentStep === 1){
+    const prevChoice = selections[0]?.value;
+    if(prevChoice==="simples"){
+      title.textContent = "Defina o tipo da Lente";
+      step.optionsSimples.forEach(opt=>createOption(opt,optionsBox));
+    } else {title.textContent = "Defina o campo de visão";; step.optionsMultifocal.forEach(opt=>createOption(opt,optionsBox)); }
+  } else if(currentStep === steps.length-1){
+    const summary = document.createElement("div");
+    summary.className="summary";
+    summary.style.textAlign="left";
+    summary.innerHTML="<h3>Resumo da sua escolha:</h3>";
+    let totalFinal=0;
+    steps.forEach((s,i)=>{
+      if(selections[i]){
+        const opt=selections[i];
+        summary.innerHTML+=`<p><b><a onclick="goToStep(${i})">${s.title}</a></b>: ${opt.label} (R$${opt.price})</p>`;
+        totalFinal+=opt.price;
+      }
+    });
+    summary.innerHTML+=`<h2>Total Final: R$${totalFinal}</h2>`;
+    container.appendChild(summary);
+  } else {
+    step.options.forEach(opt=>createOption(opt,optionsBox));
+  }
+  if(currentStep!==steps.length-1) container.appendChild(optionsBox);
+
+  const buttons = document.createElement("div");
+  buttons.className="buttons";
+  if(currentStep===0) buttons.classList.add("first-step");
+
+  if(currentStep>0){
+    const prevBtn=document.createElement("button");
+    prevBtn.textContent="Voltar";
+    prevBtn.className="prev";
+    prevBtn.onclick=()=>{ currentStep--; renderStep(); };
+    buttons.appendChild(prevBtn);
+  }
+
+  if(currentStep<steps.length-1){
+    const nextBtn=document.createElement("button");
+    nextBtn.textContent="Avançar";
+    nextBtn.className="next";
+    nextBtn.onclick=()=>{
+      if(!selections[currentStep]){
+        alert("Selecione uma opção para continuar.");
+        return;
+      }
+      currentStep++;
+      renderStep();
+    };
+    buttons.appendChild(nextBtn);
+  }
+
+  container.appendChild(buttons);
+  updateTotal();
+  applyRules();
+}
+
+function createOption(opt,parent){
+  const div=document.createElement("div");
+  div.className="option";
+  div.innerHTML=`<img src="${opt.img}" alt="${opt.label}"><p>${opt.label}<br><b>R$${opt.price}</b></p>`;
+  div.onclick=()=>{
+    selections[currentStep]=opt;
+    document.querySelectorAll(".option").forEach(el=>el.classList.remove("selected"));
+    div.classList.add("selected");
+    applyRules();
+    updateTotal();
+  };
+  div.setAttribute("data-option",opt.value);
+  parent.appendChild(div);
+}
+
+function goToStep(stepIndex){ currentStep=stepIndex; renderStep(); }
+function goToSummary(){ currentStep=steps.length-1; renderStep(); }
+
+function updateTotal(){
+  let totalAtual=0;
+  Object.values(selections).forEach(opt=>{ if(opt) totalAtual+=opt.price; });
+  document.getElementById("total").textContent=totalAtual.toFixed(2);
+}
+
+// --- Regras condicionais ---
+function applyRules(){
+  // Regra 1: Visão simples + lente pronta → sem premium
+  if(selections[0]?.value==="simples" && selections[1]?.value==="pronta"){
+    const premium=document.querySelector("[data-option='premium']");
+    if(premium){ premium.style.display="none"; if(selections[3]?.value==="premium") selections[3]=null; }
+  } else { const premium=document.querySelector("[data-option='premium']"); if(premium) premium.style.display="block"; }
+
+  // Regra 2: Material 1.67 ou 1.74 → sem incolor e filtro azul+escurecimento exclusivo
+  const mat=selections[2]?.value;
+  const tipo=selections[1]?.value;
+  const lente=selections[0]?.value;
+  if(tipo==="pronta" && mat==="1.67" || mat==="1.74"){
+    const incolor=document.querySelector("[data-option='incolor']");
+    if(incolor) { incolor.style.display="none"; if(selections[3]?.value==="incolor") selections[3]=null; }
+
+  } else if (tipo==="surfacada" || lente==="multifocal" && mat==="1.67" || mat==="1.74"){
+   if(selections[4]?.value==="sim"){ // filtro azul selecionado
+      const esc=document.querySelector("[data-option='sim'][data-step='escurecimento']");
+      if(esc) esc.style.display="none";
+      if(selections[5]?.value==="sim") selections[5]=null;
+    } else if(selections[5]?.value==="sim"){ // escurecimento selecionado
+      const azul=document.querySelector("[data-option='sim'][data-step='filtroAzul']");
+      if(azul) azul.style.display="none";
+      if(selections[4]?.value==="sim") selections[4]=null;
+    } else {
+      const esc=document.querySelector("[data-option='sim'][data-step='escurecimento']");
+      if(esc) esc.style.display="block";
+      const azul=document.querySelector("[data-option='sim'][data-step='filtroAzul']");
+      if(azul) azul.style.display="block";
+    }
+
+} else {
+    const incolor=document.querySelector("[data-option='incolor']");
+    if(incolor) incolor.style.display="block";
+    const azul=document.querySelector("[data-option='sim'][data-step='filtroAzul']");
+    if(azul) azul.style.display="block";
+    const esc=document.querySelector("[data-option='sim'][data-step='escurecimento']");
+    if(esc) esc.style.display="block";
+  }
+
+  // Regra 3: Material 1.74 → sem escurecimento
+  if(mat==="1.74"){ const esc=document.querySelector("[data-option='sim'][data-step='escurecimento']"); if(esc) esc.style.display="none"; if(selections[5]?.value==="sim") selections[5]=null; }
+}
+
+renderStep();
+</script>
+</body>
+</html>
